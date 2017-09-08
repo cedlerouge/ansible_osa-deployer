@@ -1,0 +1,2 @@
+- name: debian debug
+  debug: msg="Install via apt tools"

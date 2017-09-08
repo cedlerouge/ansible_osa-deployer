@@ -1,0 +1,3 @@
+---
+- name: os family specificities
+  include: '{{ ansible_os_family | lower }}.yml'
