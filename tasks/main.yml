@@ -5,7 +5,7 @@
 - name: import osa source
   git: 
     repo: https://git.openstack.org/openstack/openstack-ansible
-    version: 15.1.8
+    version: "{{ osa_version }}"
     dest: /opt/openstack-ansible/
   when: deployer
 
