@@ -1,2 +1,33 @@
-- name: debian debug
-  debug: msg="Install via apt tools"
+- name: install deployer additional software packages
+  apt: 
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - build-essential
+    - git
+    - ntp
+    - ntpdate
+    - openssh-server
+    - python3-dev
+    - sudo
+  when: deployer
+
+- name: install target additional software packages
+  apt: 
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - bridge-utils
+    - debootstrap
+    - ifenslave
+    - ifenslave-2.6
+    - lsof
+    - lvm2
+    - ntp
+    - ntpdate
+    - openssh-server
+    - sudo 
+    - tcpdump
+    - vlan
+  when: target
+

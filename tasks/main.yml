@@ -1,3 +1,68 @@
 ---
 - name: os family specificities
   include: '{{ ansible_os_family | lower }}.yml'
+
+- name: import osa source
+  git: 
+    repo: https://git.openstack.org/openstack/openstack-ansible
+    version: 15.1.8
+    dest: /opt/openstack-ansible/
+  when: deployer
+
+- name: execute bootstrap-ansible script
+  command: /opt/openstack-ansible/scripts/bootstrap-ansible.sh
+  args: 
+    chdir: /opt/openstack-ansible
+  when: deployer
+
+- name: create root ssh key
+  user: 
+    name: root
+    generate_ssh_key: yes
+    ssh_key_bits: 2048
+    ssh_key_type: "rsa"
+    ssh_key_file: ".ssh/id_rsa"
+  when: deployer
+
+- name: get deployer ssh public key
+  command: 
+    cat /root/.ssh/id_rsa.pub
+  register: deployerkey
+  when: deployer
+
+- name: enable kernel modules for vlan interfaces
+  lineinfile: 
+    path: /etc/modules
+    regexp: "^8021q"
+    line: "8021q"
+    state: present 
+  when: target
+
+- name: enable kernel modules for bond interfaces
+  lineinfile: 
+    path: /etc/modules
+    regexp: "^bonding"
+    line: "bonding"
+    state: present 
+  when: target
+
+- name: deploy ssh keys
+  authorized_key: 
+    key: "{{ hostvars[item].deployerkey.stdout }}"
+    state: present
+    user: root
+  with_items: "{{ groups.osa_master }}"
+  when: deployer
+
+- name: test ssh connection from deployer to target
+  ping: 
+  delegate_to: "{{ item }}"
+  with_items: "{{ groups.osa_target }}"
+
+- name: enable ntp
+  service: 
+    name: ntp
+    state: running
+    enabled: true
+
+  
