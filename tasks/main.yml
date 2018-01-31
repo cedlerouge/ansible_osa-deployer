@@ -6,13 +6,13 @@
   git: 
     repo: https://git.openstack.org/openstack/openstack-ansible
     version: "{{ osa_version }}"
-    dest: /opt/openstack-ansible/
+    dest: "/opt/openstack-ansible/"
   when: deployer
 
 - name: execute bootstrap-ansible script
   command: /opt/openstack-ansible/scripts/bootstrap-ansible.sh
   args: 
-    chdir: /opt/openstack-ansible
+    chdir: "/opt/openstack-ansible/"
   when: deployer
 
 - name: create root ssh key
@@ -59,10 +59,68 @@
   delegate_to: "{{ item }}"
   with_items: "{{ groups.osa_target }}"
 
-- name: enable ntp
-  service: 
-    name: ntp
-    state: running
-    enabled: true
+- name: copy openstack_deploy from example
+  shell: |
+    cp -rpf /opt/openstack-ansible/etc/openstack_deploy /etc/openstack_deploy
+  delegate_to: "{{ item }}"
+  with_items: "{{ groups.osa_master }}"
 
-  
+- name: configuring service credentials
+  command: ./scripts/pw-token-gen.py --file /etc/openstack_deploy/user_secrets.yml
+  args:
+    chdir: /opt/openstack-ansible
+  delegate_to: "{{ item }}"
+  with_items: "{{ groups.osa_master }}"
+
+- name: personalize openstack_user_config.yml
+  copy:
+    src: openstack_deploy/openstack_user_config.yml
+    dest: /etc/openstack_deploy/openstack_user_config.yml
+    owner: root
+    group: root
+    mode: 0644
+    backup: yes
+  delegate_to: "{{ item }}"
+  with_items: "{{ groups.osa_master }}"
+
+- name: personalize user_variables.yml
+  copy:
+    src: openstack_deploy/user_variables.yml
+    dest: /etc/openstack_deploy/user_variables.yml
+    owner: root
+    group: root
+    mode: 0644
+    backup: yes
+  delegate_to: "{{ item }}"
+  with_items: "{{ groups.osa_master }}"
+
+- name: personalize cinder.yml
+  copy:
+    src: openstack_deploy/env.d/cinder.yml
+    dest: /etc/openstack_deploy/env.d/cinder.yml
+    owner: root
+    group: root
+    mode: 0644
+    backup: yes
+  delegate_to: "{{ item }}"
+  with_items: "{{ groups.osa_master }}"
+
+# from https://github.com/debops/ansible-ntp/blob/master/tasks/systemd-timesyncd.yml
+- name: Make sure conf override dir exists
+  file:
+    path: '/etc/systemd/timesyncd.conf.d'
+    state: 'directory'
+    owner: 'root'
+    group: 'root'
+    mode: '0755'
+
+- name: Configure systemd-timesyncd
+  template:
+    src: 'etc/systemd/timesyncd.conf.d/ansible.conf.j2'
+    dest: '/etc/systemd/timesyncd.conf.d/ansible.conf'
+    owner: 'root'
+    group: 'root'
+    mode: '0644'
+  notify: [ 'Restart systemd-timesyncd' ]
+
+

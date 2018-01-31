@@ -1,0 +1,6 @@
+# {{ ansible_managed }}
+
+# Configuration for systemd-timesyncd
+
+[Time]
+Servers={{ ntp__servers | join(' ') }}

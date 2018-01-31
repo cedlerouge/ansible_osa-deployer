@@ -1,0 +1,59 @@
+---
+# Because we have three haproxy nodes, we need
+# to one active LB IP, and we use keepalived for that.
+## Load Balancer Configuration (haproxy/keepalived)
+haproxy_keepalived_external_vip_cidr: "10.29.241.9/32"
+haproxy_keepalived_internal_vip_cidr: "192.168.73.0/22"
+haproxy_keepalived_external_interface: eno3
+haproxy_keepalived_internal_interface: br-mgmt
+
+## Ceph cluster fsid (must be generated before first run)
+## Generate a uuid using: python -c 'import uuid; print(str(uuid.uuid4()))'
+generate_fsid: false
+fsid: a33c4188-e435-4ba5-8bd3-70cd6d169767 # Replace with your generated UUID
+
+## ceph-ansible settings
+## See https://github.com/ceph/ceph-ansible/tree/master/group_vars for
+## additional configuration options availble.
+monitor_address_block: "{{ cidr_networks.container }}"
+public_network: "{{ cidr_networks.container }}"
+cluster_network: "{{ cidr_networks.storage }}"
+osd_scenario: collocated
+journal_size: 10240 # size in MB
+# ceph-ansible automatically creates pools & keys for OpenStack services
+openstack_config: true
+cinder_ceph_client: cinder
+glance_ceph_client: glance
+glance_default_store: rbd
+glance_rbd_store_pool: images
+nova_libvirt_images_rbd_pool: vms
+devices:
+  - /dev/sdb
+  - /dev/sdc
+
+cinder_backends:
+  RBD:
+    volume_driver: cinder.volume.drivers.rbd.RBDDriver
+    rbd_pool: volumes
+    rbd_ceph_conf: /etc/ceph/ceph.conf
+    rbd_store_chunk_size: 8
+    volume_backend_name: rbddriver
+    rbd_user: "{{ cinder_ceph_client }}"
+    rbd_secret_uuid: "{{ cinder_ceph_client_uuid }}"
+    report_discard_supported: true
+
+
+# Used to populate /etc/environment
+## Needed proxy to get sources
+proxy_env_url: http://proxy.enst-bretagne.fr:8080
+no_proxy_env: "localhost,127.0.0.1,{{ internal_lb_vip_address }},{{ external_lb_vip_address }},{% for host in groups['all_containers'] %}{{ hostvars[host]['container_address'] }}{% if not loop.last %},{% endif %}{% endfor %}"
+global_environment_variables:
+  HTTP_PROXY: "{{ proxy_env_url }}"
+  HTTPS_PROXY: "{{ proxy_env_url }}"
+  NO_PROXY: "{{ no_proxy_env }}"
+  http_proxy: "{{ proxy_env_url }}"
+  https_proxy: "{{ proxy_env_url }}"
+  no_proxy: "{{ no_proxy_env }}"
+
+pip_validate_certs: false
+galera_package_download_validate_certs: false
